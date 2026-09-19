@@ -1,0 +1,14 @@
+# Organizer-supplied material - not ours to publish
+secrets/
+tools/
+inbox/
+attachments/
+
+# Python
+.venv/
+__pycache__/
+.cache/
+*.db
+
+# Output
+submission.json
