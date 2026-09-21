@@ -19,9 +19,21 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from loader import Inbox                      # organizers' loader, unmodified
 from src.pipeline import run_all, process
 from src.contracts import COMPARE_FIELDS
+
+try:
+    from loader import Inbox                  # organizers' loader, unmodified
+except ModuleNotFoundError:                   # pragma: no cover - environment guard
+    sys.exit(
+        'loader.py is missing.\n\n'
+        'It is the organizers\' inbox loader and is deliberately not redistributed in\n'
+        'this repository, along with inbox/, attachments/, tools/ and secrets/.\n'
+        'Copy loader.py and the data folders from the participant bundle into this\n'
+        'directory to run the deterministic baseline.\n\n'
+        'The QuayProof application in quayproof/ does not need any of this and runs\n'
+        'standalone: see README section 1.'
+    )
 
 ROOT = Path(__file__).parent
 GROUND_TRUTH = ROOT / "secrets" / "ground_truth.json"

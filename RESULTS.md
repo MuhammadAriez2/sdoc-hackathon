@@ -87,7 +87,20 @@ forget. Across the full 520 there are roughly 91 emails of this shape.
 The distinction is entirely in the wording of the body: an email that says
 "the attachments appear to have been dropped" is a genuine escalation, and an
 email that says "please send me the draft" is a valid request with nothing to
-check yet. The fix is a body-intent check before the escalation returns.
+check yet.
+
+**This is now fixed.** `pipeline.attachment_intent` reads the sender's own
+words, with any quoted reply chain stripped, and escalates only when the body
+reports attachments as expected-and-missing — or when one document is already
+present, in which case its counterpart is genuinely absent regardless of
+wording. Five tests in `test_core.py` cover it; sixteen real wordings were
+checked, including the exact sentence above. `docs/VALIDATION.md` states the
+trade-off the fix accepts.
+
+The measured 0.9757 predates the fix. The fix touches neither classification,
+extraction nor comparison, and the evaluator excludes escalation from the
+weighted score, so the figure is expected to hold — but it has not been re-run,
+and this file does not claim a number it has not measured.
 
 The seventh, `email_005`, escalated `missing_value` on two XLSX attachments
 that ground truth marks OK — a gap in the Excel extraction path, not the same
@@ -132,7 +145,10 @@ swallowed all 125 of them into `BL_COMPARISON`.
 
 ## 3. Reproducing these numbers
 
-Deterministic baseline, full dataset:
+Deterministic baseline, full dataset. This needs the organizers' `loader.py`,
+`inbox/`, `attachments/`, `tools/score_cli.py` and `secrets/ground_truth.json`
+copied into the repository root — none of them are redistributed here, and
+`run.py` says so rather than failing with an import error:
 
 ```bash
 python run.py --score
@@ -157,10 +173,10 @@ measurement is checkable without rerunning any AI calls.
 - **No full-dataset score for the deployed application.** 37 records were
   processed; 520 were not. Any figure quoted for the deployed app carries that
   scope or it is wrong.
-- **A separate pure-Python pipeline reached 1.0000** during development. That
-  code is **not in this repository**, and until it is committed here the number
-  cannot be presented as this project's result. Either commit it and score it
-  as its own entry in this file, or leave it out of the deck.
+- **No claim is made for a 1.0000 score.** A separate pure-Python pipeline
+  reached that figure during development. It is not in this repository and is
+  not scored here, so it is not this project's result and is not presented as
+  one anywhere in this submission.
 - **No production readiness claim.** One Render free instance, one worker, a
   shared team token rather than per-user identity, and a 100-call daily budget.
 - **Live accuracy is measured on synthetic organizer data only.** No real

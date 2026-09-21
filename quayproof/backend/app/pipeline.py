@@ -1,9 +1,51 @@
 import copy
+import re
 import time
 from .models import FIELDS
-from .normalize import normalize
+from .normalize import current_message, normalize
 from .parsers import DocumentError, parse_document
 from .providers import ProviderError
+
+# A comparison email can carry too few documents for two opposite reasons.
+# "The attachments appear to have been dropped" is a genuine escalation: work
+# was expected and is missing. "Please assist to send the draft BL" is an
+# ordinary request with nothing to check yet, and escalating it sends an
+# operator to review a case that was never broken. The only signal separating
+# them is the sender's own wording, so both are matched explicitly and the
+# unmatched remainder is treated as nothing-to-compare rather than a defect.
+LOST_ATTACHMENT = re.compile(r'''
+      (?:not|n't|never|forgot\s+to|failed\s+to|omitted\s+to)\s+(?:been\s+)?attach
+    | attachment[s]?\b[^.\n]{0,40}\b(?:missing|dropped|lost|blank|empty|corrupt|not\s+received)
+    | (?:missing|dropped|lost|no|without)\s+attachment
+    | (?:can(?:no|')?t|unable\s+to|could\s+not)\s+(?:open|find|see|read)\s+the\s+attach
+    | re-?send\s+the\s+attach
+''', re.I | re.X)
+
+REQUESTS_DOCUMENT = re.compile(r'''
+      (?:please|pls|kindly|could\s+you|can\s+you|appreciate\s+if\s+you)
+      [^.\n]{0,60}
+      \b(?:assist|send|share|provide|forward|furnish|issue|prepare|revert|let\s+me\s+have)\b
+    | \brevert\s+with\b
+    | \bawait(?:ing)?\s+(?:your|the)\b
+    | \bpending\s+(?:your|the)\b
+''', re.I | re.X)
+
+
+def attachment_intent(case, document_count):
+    """Why does this comparison email have too few documents?
+
+    Returns an escalation reason, or None with an operator-facing note when
+    there is simply nothing to compare yet. One document present always means
+    its counterpart is genuinely absent.
+    """
+    if document_count:
+        return 'missing_attachment', None
+    text = current_message(case.get('body', ''))
+    if LOST_ATTACHMENT.search(text):
+        return 'missing_attachment', None
+    if REQUESTS_DOCUMENT.search(text):
+        return None, 'The sender is requesting a document rather than supplying one. Nothing to compare until it arrives.'
+    return None, 'This comparison request carries no documents. Nothing to compare until they arrive.'
 
 
 def observation(candidate, doc, *, human=False):
@@ -71,7 +113,10 @@ def compare(case):
     docs = [d for d in case['documents'] if d['active']]
     reason = None
     if len(docs) < 2:
-        reason = 'missing_attachment'
+        reason, note = attachment_intent(case, len(docs))
+        if not reason:
+            base.update(status='OK', comparison_complete=True, review_note=note)
+            return base
     elif any(d.get('parse_error') for d in docs):
         reason = next(d['parse_reason'] for d in docs if d.get('parse_error'))
     si, bl = [d for d in docs if d.get('doc_type')=='SI'], [d for d in docs if d.get('doc_type')=='BL']

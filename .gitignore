@@ -3,6 +3,7 @@ secrets/
 tools/
 inbox/
 attachments/
+loader.py
 
 # Python
 .venv/

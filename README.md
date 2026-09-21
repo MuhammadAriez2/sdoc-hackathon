@@ -40,7 +40,7 @@ Three decisions define the system:
 
 React + TypeScript (Vite) → FastAPI → pdfplumber / python-docx / openpyxl / Tesseract → Gemini → deterministic comparator → Supabase (Postgres + private object storage) → Render.
 
-Handles TXT, native PDF, scanned PDF via OCR, DOCX tables and XLSX sheets. Bilingual labels and ~60 field-name variants are mapped; weights normalise across kg / MT / lbs; port codes are stripped before comparison.
+Handles TXT, native PDF, scanned PDF via OCR, DOCX tables and XLSX sheets. Weights normalise across kg / MT / lbs with Decimal arithmetic; container counts accept `6` or `6 x 40'HC`; party and port text is normalised by NFKC + casefold + punctuation collapse. Semantic and bilingual label variants (`Load Port` → `port_of_loading`, `毛重` → `gross_weight_kg`) are resolved by the model under a prompt that forbids inventing values; the offline demo provider resolves 28 of them from a static table. Port codes are **not** mapped to port names — `Port Klang` and `MYPKG` compare as different, and that is deliberate until an alias rule is reviewed against authorized data.
 
 ## Running it
 
@@ -54,7 +54,7 @@ docker compose up --build
 
 Then open http://localhost:8000 and click **Load demo inbox**. No API key needed for the offline demo.
 
-Tests: `python -m pytest backend/tests -q` — 48 passing, including all four document formats against real Tesseract.
+Tests: `python -m pytest backend/tests -q` — 53 passing, including all four document formats against real Tesseract.
 
 ---
 
@@ -128,7 +128,7 @@ TXT, native PDF, Word tables and Excel sheets do not require Tesseract. A missin
 ### Option A: Gemini on permitted non-sensitive inputs
 
 1. Create a Gemini Developer API key in [Google AI Studio](https://aistudio.google.com/).
-2. Check [model pricing](https://ai.google.dev/gemini-api/docs/pricing) and the project's [active rate limits](https://ai.google.dev/gemini-api/docs/rate-limits). Choose a model with available free quota that supports `generateContent` and structured JSON output. Model access is account-dependent; no model ID is assumed in this starter.
+2. Check [model pricing](https://ai.google.dev/gemini-api/docs/pricing) and the project's [active rate limits](https://ai.google.dev/gemini-api/docs/rate-limits). Choose a model with available free quota that supports `generateContent` and structured JSON output. Model access is account-dependent, so no model ID is hardcoded; the measured results in `RESULTS.md` come from `gemini-3.5-flash-lite`.
 3. Edit the **root `.env`**:
 
 ```dotenv
@@ -219,14 +219,16 @@ Confirm that the exported email-ID set exactly matches the authorized inbox befo
 python scripts/submit.py --url http://organizer-authorized-host:8080 --file submission.json
 ```
 
-This script only submits your predictions and prints the numeric aggregate `final_score`. It never requests private labels. No organizer scoring endpoint was called during creation of this starter.
+This script only submits predictions and prints the numeric aggregate `final_score`. It never requests private labels.
 
 ## 7. How to work on the code
 
 | Location | Responsibility |
 |---|---|
-| `frontend/src/App.tsx` | Inbox, comparison table, evidence drawer, review, upload and revisions |
-| `frontend/src/style.css` | Responsive UI; plain CSS keeps the starter small |
+| `frontend/src/App.tsx` | Application shell: data loading, filters, review actions, upload and revisions |
+| `frontend/src/components/` | `InboxList`, `ComparisonTable`, `EvidenceDrawer`, `NewRequestModal` |
+| `frontend/src/labels.ts` | Field labels, category filters and shared display helpers |
+| `frontend/src/style.css` | Responsive UI; plain CSS keeps the dependency surface small |
 | `backend/app/main.py` | API routes, access token, upload limits, review and export |
 | `backend/app/providers.py` | Gemini/Ollama adapters, prompts, explicit offline demo provider |
 | `backend/app/parsers.py` | TXT, PDF/native/OCR, DOCX tables, XLSX row evidence |
@@ -239,7 +241,7 @@ This script only submits your predictions and prints the numeric aggregate `fina
 | `docs/ARCHITECTURE.md` | API contract, reliability policy and known limitations |
 | `docs/TEAM_GUIDE.md` | Suggested work split, acceptance checks and five-minute demo |
 
-The UI uses plain CSS rather than adding Tailwind/shadcn dependencies. It shows text evidence and original-file downloads; an in-page PDF.js coordinate-overlay viewer is a next step. There is no hidden production backend, mailbox integration or trained model to obtain.
+The UI uses plain CSS rather than adding Tailwind/shadcn dependencies. It shows text evidence and original-file downloads; an in-page PDF.js coordinate-overlay viewer is the next step. Everything the application does runs from this repository — there is no hidden backend, mailbox integration or separately trained model.
 
 ## 8. Test and build
 
@@ -283,6 +285,8 @@ It seeds the synthetic demo, checks mismatch evidence and blocked approval, capt
 
 ## 10. What is and is not validated
 
-See `docs/VALIDATION.md` for checks performed on this delivery. A passing synthetic test is not a measured accuracy score on the participant dataset. Gemini/Ollama live accuracy, Supabase execution, Render resource fit and the Docker image must be validated with your actual accounts/hardware. In particular, test one real authorized scan on the intended host before committing to the final architecture.
+`docs/VALIDATION.md` lists every check performed on this delivery, with the date and the evidence, and a matching list of what has **not** been checked. A passing unit test, a working deployment and a measured evaluator score are three different kinds of evidence, and that file keeps them apart.
 
-This is a working starter, not a claim of production readiness or a complete hackathon submission. Your team still needs to connect actual AI, deploy and validate the public app, review/adapt the implementation, publish the repository, prepare the deck/technical explanation and record the five-minute demo. Respect the official build window and disclose assistance as required by the event rules.
+The short version: the pipeline, the deployment and the Gemini integration are all live and exercised, measured at 0.9757 on the 37 records processed. 483 of the 520 records have not been run, because the free-tier quota does not permit it. The Ollama provider is implemented but has never been executed. No real customer document has been through this system — all validation is against organizer-supplied synthetic data.
+
+This is a prototype, not a production system: one Render free instance, one worker, a shared team token rather than per-user identity, and a 100-call daily AI budget. `docs/ARCHITECTURE.md` §Security and scope limits states what would have to change before it handled real traffic.

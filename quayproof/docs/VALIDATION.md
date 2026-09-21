@@ -15,7 +15,7 @@ Last updated 21 Sep 2026.
 
 | # | Check | Evidence | Date |
 |---|---|---|---|
-| 1 | **Backend test suite** — 48 tests pass | `python -m pytest backend/tests -q` → `48 passed in 3.45s` | 21 Sep |
+| 1 | **Backend test suite** — 53 tests pass | `python -m pytest backend/tests -q` → `53 passed in 2.40s` | 21 Sep |
 | 2 | **All four document formats** parse with real dependencies | `test_formats.py` — `test_docx_tables`, `test_xlsx_cell_evidence`, `test_native_pdf_page_evidence`, `test_scanned_pdf_ocr` all PASSED against Tesseract 5.3.4 / leptonica 1.82.0. The OCR test did **not** skip. | 21 Sep |
 | 3 | **Docker image builds and runs** | Built and run on a Windows host via Docker Desktop; app served at `localhost:8000`, demo inbox loaded, cases processed. | 20 Sep |
 | 4 | **Supabase is live** | Schema applied; `qp_cases`, `qp_ai_usage` and the three RPCs exist; private `quayproof-documents` bucket created; cases and documents survive a service restart. | 20 Sep |
@@ -25,6 +25,8 @@ Last updated 21 Sep 2026.
 | 8 | **Corrupt input fails visibly** | `demo-files/unreadable.pdf` yields a parse error and an `unreadable` escalation — never a false `OK`. | 20 Sep |
 | 9 | **Case and punctuation normalise correctly** | `normalize.text_key` applies NFKC + `casefold` + punctuation collapse. `Port Klang`, `PORT KLANG` and `port klang` compare equal; confirmed in the live UI, where the normalised key is displayed under each raw value. | 20 Sep |
 | 10 | **Weight units normalise across systems** | MT → kg (×1000), lbs → kg (×0.45359237), grouped thousands parsed, ambiguous separators rejected rather than guessed. Covered in `test_core.py`. | 21 Sep |
+| 11 | **Browser smoke test passes** | `node scripts/smoke-browser.mjs` against a local demo instance → `PASS: demo import, comparison, source evidence, review approval guard, desktop/mobile rendering; no browser exceptions.` Asserts zero browser exceptions and no mobile horizontal overflow. | 21 Sep |
+| 12 | **Attachment intent is distinguished from attachment loss** | `attachment_intent` in `pipeline.py`, five cases in `test_core.py`. A comparison email with no documents whose body requests one resolves `OK`; one whose body reports a dropped or forgotten attachment still escalates; one document present always escalates. | 21 Sep |
 
 ---
 
@@ -65,30 +67,49 @@ run, which is what makes the evaluator score meaningful at all.
 |---|---|
 | **Full 520-record run of the deployed app** | Not done. 37 records processed; the app's 100-call daily budget and the free-tier Gemini quota do not permit a full pass. `RESULTS.md` scopes every deployed figure accordingly. |
 | **DOCX and XLSX through the live deployment** | Passing as unit tests against real libraries (check 2), but the live Render instance has been exercised with TXT and PDF pairs only. |
-| **Browser smoke test** (`scripts/smoke-browser.mjs`) | Not run. The live flow was verified manually in a browser instead; the automated script remains unexecuted. |
 | **Ollama provider** | Implemented in `providers.py`. No test coverage; never executed. Gemini is the only provider exercised. |
+| **Re-measurement after the escalation fix** | The 0.9757 figure predates check 12. The fix does not touch classification, extraction or comparison, and the evaluator's weighted score excludes escalation, so the weighted figure is expected to be unchanged — but it has not been re-run against the evaluator. |
 | **Concurrency and lease recovery under load** | The 30-minute lease and optimistic-concurrency paths are unit-tested. Not exercised with real concurrent workers. |
 | **Any real customer document** | None. All validation uses organizer-supplied synthetic data or synthetic fixtures authored for this project. |
 
 ---
 
-## Known defect
+## Defect found by measurement, and fixed
 
-**Zero-attachment comparison emails are over-escalated.**
+**Zero-attachment comparison emails were over-escalated.**
 
-`pipeline.compare` returns `missing_attachment` for any comparison email with
-fewer than two active documents. Six of the 37 measured records are emails
-where the sender is *requesting* a draft BL rather than supplying one, and
-ground truth marks all six OK. Approximately 91 records across the full 520
-have this shape.
+The 0.9757 run exposed escalation precision of 0.000: seven cases escalated,
+none of which needed it. Six were one bug. `pipeline.compare` returned
+`missing_attachment` for any comparison email with fewer than two active
+documents, but `email_003`, `006`, `011`, `016`, `018` and `036` carry no
+attachments *because the sender is asking a colleague to send the draft BL*.
+Ground truth marks all six OK. Roughly 91 of the full 520 records have this
+shape.
 
-The signal that separates the two cases is the body wording — "the attachments
-appear to have been dropped" versus "please assist to send the draft BL". The
-current code does not inspect it. This does not affect the evaluator's weighted
-score, since escalation is scored on a separate diagnostic axis, but it would
-send an operator to review roughly ninety cases that need no review.
+`attachment_intent` now reads the sender's own words, with any quoted reply
+chain stripped, and separates the two cases explicitly:
 
-Detail and the proposed fix are in `RESULTS.md` §1.
+| Body signals | Result |
+|---|---|
+| Attachments expected and lost — "forgot to attach", "appear to have been dropped", "could not open the attachment" | `NEEDS_REVIEW`, `missing_attachment` |
+| A document is being requested — "please assist to send", "kindly share", "revert with" | `OK`, with an operator note; nothing to compare yet |
+| Neither, and no documents at all | `OK`, with an operator note |
+| One document present, whatever the wording | `NEEDS_REVIEW`, `missing_attachment` |
+
+The last row is the important one: a single attachment always means its
+counterpart is genuinely absent, so no wording can talk the system out of that
+escalation.
+
+The trade this makes, stated plainly: an email whose attachments were lost in a
+wording none of these patterns match now resolves `OK` instead of escalating.
+That is a deliberate choice — over-escalation was measured at roughly ninety
+cases, under-escalation in unmatched wording is not measurable from this
+dataset, and the zero-document case has nothing to compare either way. Sixteen
+real wordings were checked against the patterns; see `test_core.py`.
+
+The seventh escalation, `email_005`, is unrelated: `missing_value` on two XLSX
+attachments that ground truth marks OK, a gap in the Excel extraction path.
+**Still open.**
 
 ---
 

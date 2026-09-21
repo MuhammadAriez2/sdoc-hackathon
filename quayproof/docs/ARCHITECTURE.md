@@ -66,7 +66,8 @@ Outcome policy:
 | At least one difference and no unknowns | `MISMATCH`, complete |
 | Unknown fields and no confirmed differences | `NEEDS_REVIEW`, `missing_value` |
 | Confirmed difference plus unknown field(s) | `MISMATCH` + visible required review + incomplete |
-| Too few attachments | `NEEDS_REVIEW`, `missing_attachment` |
+| One attachment only, or a body reporting attachments as lost | `NEEDS_REVIEW`, `missing_attachment` |
+| No attachments and a body requesting a document | `OK`, nothing to compare yet, with an operator note |
 | Wrong/ambiguous document pairing | `NEEDS_REVIEW`, `wrong_doc_type` |
 | Damaged/unreadable/unsupported-size document | `NEEDS_REVIEW`, reason and detailed parser explanation |
 | Infrastructure/API/tool failure | Processing `failed` or queued retry; no comparison verdict |

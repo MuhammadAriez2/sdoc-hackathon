@@ -9,6 +9,19 @@ def text_key(value: str) -> str:
     return ' '.join(re.sub(r'[^\w\s]', ' ', value).split())
 
 
+QUOTED_REPLY = re.compile(r'(?im)^\s*(?:on .+wrote:|from:|[- ]*original message[- ]*|>)')
+
+
+def current_message(body: str) -> str:
+    """The sender's own words, with any quoted reply chain removed.
+
+    Intent lives in what this sender wrote, not in the thread they replied to.
+    Shared by classification and by the attachment-intent check so both read
+    the same text.
+    """
+    return QUOTED_REPLY.split(body or '')[0]
+
+
 def number(value: str) -> Decimal:
     value = value.strip()
     # Only unambiguous English grouping; decimal commas need explicit human interpretation.

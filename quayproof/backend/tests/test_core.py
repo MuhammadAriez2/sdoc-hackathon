@@ -84,6 +84,36 @@ def test_numeric_ocr_needs_human_confirmation():
     assert observation(c,doc,human=True)['usable']
 
 
+def bare_comparison(body, documents=()):
+    return compare(dict(classification=demo_classify('Draft BL',body),documents=list(documents),body=body))
+
+
+def test_request_for_a_draft_is_not_an_escalation():
+    r=bare_comparison('Please assist to send the draft BL for SIN832764835 so we can verify it.')
+    assert r['category']=='BL_COMPARISON'
+    assert r['status']=='OK' and r['review_reason'] is None and not r['requires_review']
+
+
+def test_dropped_attachments_still_escalate():
+    r=bare_comparison('Please verify the draft BL against the SI. The attachments appear to have been dropped.')
+    assert r['status']=='NEEDS_REVIEW' and r['review_reason']=='missing_attachment'
+
+
+def test_forgotten_attachment_still_escalates():
+    r=bare_comparison('Please verify the draft BL against the SI. I forgot to attach them.')
+    assert r['review_reason']=='missing_attachment'
+
+
+def test_one_document_always_escalates():
+    r=bare_comparison('Please assist to send the draft BL so we can verify it.',[document('SHIPPING INSTRUCTION\n'+BASE)])
+    assert r['review_reason']=='missing_attachment'
+
+
+def test_quoted_reply_does_not_supply_attachment_intent():
+    r=bare_comparison('Please verify the draft BL.\nOn Monday someone wrote:\n> I forgot to attach the files.')
+    assert r['status']=='OK' and r['review_reason'] is None
+
+
 def test_current_email_overrides_quoted_old_request():
     assert demo_classify('BL verification','Prepare a new shipping instruction.\nOn Monday someone wrote:\n> Compare the BL.')['category']=='SI_REQUEST'
 

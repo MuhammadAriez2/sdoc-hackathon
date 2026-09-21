@@ -1,7 +1,8 @@
 # Scoring run log
 
-Every scoring run gets a line. This table is the evidence for
-"Technical Feasibility & Validation" (15 pts) — keep it honest and keep it current.
+Every scoring run against the organizers' evaluator gets a line here, including
+the ones that went backwards. This is the development record, not a summary —
+`RESULTS.md` has the breakdown of the two figures that matter.
 
 | time | score | what changed |
 |------|-------|--------------|

@@ -4,7 +4,7 @@ import httpx
 from pydantic import ValidationError
 from .config import PIPELINE_VERSION
 from .models import Classification, Extraction, FIELDS
-from .normalize import text_key
+from .normalize import current_message, text_key
 
 
 class ProviderError(RuntimeError):
@@ -78,7 +78,7 @@ LOOKUP = {text_key(label): field for field, labels in ALIASES.items() for label 
 
 
 def demo_classify(subject, body):
-    current = re.split(r'(?im)^\s*(?:on .+wrote:|from:|[- ]*original message[- ]*|>)', body)[0]
+    current = current_message(body)
     text = current.lower() or subject.lower()
     if re.search(r'\b(compare|comparison|verify|check)\b', text) and re.search(r'\b(bl|b/l|bill of lading)\b', text):
         cat = 'BL_COMPARISON'
