@@ -1,8 +1,8 @@
-# Scoring run log
+# Development log
 
-Every scoring run against the organizers' evaluator gets a line here, including
-the ones that went backwards. This is the development record, not a summary —
-`RESULTS.md` has the breakdown of the two figures that matter.
+How the work actually went, including the runs that went backwards. This is
+the development record, not a summary of the submission. `RESULTS.md` has what
+we verified and what we measured.
 
 | time | score | what changed |
 |------|-------|--------------|
@@ -16,3 +16,5 @@ Scope note: 0.8258 is the deterministic baseline across **all 520** records.
 0.9757 is the deployed Gemini application across the **37** records it has
 processed. They are not comparable figures and must never be quoted as if they
 were. Full breakdown in `RESULTS.md`.
+| Mon 20:10 | — | found we escalate every zero-attachment comparison email; about 91 of them need no review |
+| Mon 20:20 | — | `attachment_intent` reads the body to tell a lost attachment from a request for one; tests added |

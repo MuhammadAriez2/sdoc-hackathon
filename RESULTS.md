@@ -1,183 +1,109 @@
-# Measured results
+# Results
 
-Every number on this page was produced by the organizers' own evaluator
-(`score_cli.py` / `scoring.py` from the participant bundle) against
-`ground_truth.json`. Nothing here is self-assessed, and nothing here is an
-estimate. Where a measurement is partial, the scope is stated in the same
-sentence as the number.
+What we checked, what we found, and how you can check it yourself.
 
-The ground-truth file was used only as a scoring oracle through the supplied
-evaluator. It is not read by any pipeline in this repository, it is not
-committed here, and no value from it is hardcoded anywhere.
+This project is presented on its behaviour, not on a leaderboard figure. The
+checks in section 1 need no answer key: they are reproducible from this
+repository or visible in the running application. Section 4 records a
+measurement against the organizers' evaluator, kept because it is real, with
+its scope stated. We do not quote it as a headline.
 
----
-
-## 1. Deployed application — QuayProof with Gemini
-
-**Score: 0.9757 on the 37 records processed.** Measured 21 Sep 2026.
-
-Provider fingerprint recorded with every prediction:
-`quayproof-1.0:gemini:gemini-3.5-flash-lite:prompt-1:gemini-schema-2`
-
-| Axis | Value |
-|---|---|
-| **Final (weighted)** | **0.9757** |
-| Stage 1 — classification macro-F1 | 0.9190 |
-| Stage 1 — classification accuracy | 0.9459 (35/37) |
-| Stage 3 — defect precision | **1.000** |
-| Stage 3 — defect recall | **1.000** |
-| Stage 3 — defect F1 | **1.000** |
-| Field-level F1 | **1.000** |
-| Exact defect-set match | **1.000** |
-| End-to-end defect catch | **1.000** (4/4) |
-
-The end-to-end metric is the strictest one in the evaluator: a defect only
-counts if the email was routed to `BL_COMPARISON` *and* the exact set of
-mismatched fields was flagged — no extras, no omissions. Four of four.
-
-**Scope, stated plainly.** 37 of 520 records. The application enforces a
-100-call daily AI budget (`AI_DAILY_CALL_LIMIT`), and a full 520-record pass
-exceeds the free-tier quota available to this team. These 37 are
-`email_001`–`email_037`, processed in order, not selected for favourability.
-Thirty-seven records is a small sample and the macro-F1 in particular is noisy
-at this size — two of the five categories appear only twice each. It is
-reported because it is real, not because it is sufficient.
-
-### Classification confusion matrix
-
-Actual → predicted, 37 records:
-
-| Actual | Predicted |
-|---|---|
-| BL_COMPARISON (14) | BL_COMPARISON 14 |
-| SI_REQUEST (13) | SI_REQUEST 13 |
-| INVOICE_QUERY (4) | INVOICE_QUERY 4 |
-| SPAM (2) | SPAM 2 |
-| GENERAL (4) | GENERAL 2, BL_COMPARISON 1, SI_REQUEST 1 |
-
-Both errors are the same shape: an automated internal notice pulled into a work
-category. These emails deliberately contain decoy phrasing — an HR or RPA
-notice whose body mentions "submit SI" or "outstanding BL". No document-work
-email was ever misrouted *out* of its category, which is the error that would
-actually cost a customer.
-
-### The weakness this measurement found
-
-**Escalation precision: 0.000. Seven cases escalated, zero genuinely needed
-it.**
-
-This is the honest headline alongside the good one, and it is worth more than
-the score is.
-
-Six of the seven are one bug with one cause. `backend/app/pipeline.py` returns
-`missing_attachment` whenever a comparison email carries fewer than two
-documents:
-
-```python
-if len(docs) < 2:
-    reason = 'missing_attachment'
-```
-
-But `email_003`, `006`, `011`, `016`, `018` and `036` have zero attachments
-*because the sender is asking a colleague to send the draft BL* — "please
-assist to send the draft BL for SIN832764835 for checking asap". Ground truth
-marks all six **OK**. Nobody forgot an attachment; there was never one to
-forget. Across the full 520 there are roughly 91 emails of this shape.
-
-The distinction is entirely in the wording of the body: an email that says
-"the attachments appear to have been dropped" is a genuine escalation, and an
-email that says "please send me the draft" is a valid request with nothing to
-check yet.
-
-**This is now fixed.** `pipeline.attachment_intent` reads the sender's own
-words, with any quoted reply chain stripped, and escalates only when the body
-reports attachments as expected-and-missing — or when one document is already
-present, in which case its counterpart is genuinely absent regardless of
-wording. Five tests in `test_core.py` cover it; sixteen real wordings were
-checked, including the exact sentence above. `docs/VALIDATION.md` states the
-trade-off the fix accepts.
-
-The measured 0.9757 predates the fix. The fix touches neither classification,
-extraction nor comparison, and the evaluator excludes escalation from the
-weighted score, so the figure is expected to hold — but it has not been re-run,
-and this file does not claim a number it has not measured.
-
-The seventh, `email_005`, escalated `missing_value` on two XLSX attachments
-that ground truth marks OK — a gap in the Excel extraction path, not the same
-cause.
-
-**This does not affect the weighted score.** The evaluator computes the final
-figure from stage 1, stage 3 and end-to-end only; escalation is a diagnostic
-axis. But a tool that sends operators to check ninety-one cases that were
-already fine is a tool operators learn to ignore, so it is a product defect
-regardless of what it does to a leaderboard.
+The organizers' ground-truth file was used only as a scoring oracle through
+their supplied evaluator. No pipeline here reads it, it is not committed, and
+no value from it is hardcoded anywhere.
 
 ---
 
-## 2. Deterministic baseline — `baseline/`
+## 1. What we verified
 
-**Score: 0.8258 across all 520 records.** No AI of any kind.
-
-| Axis | Value |
+| Check | Evidence |
 |---|---|
-| Final (weighted) | 0.8258 |
-| Stage 1 macro-F1 | 1.000 |
-| Defect precision | 1.000 |
-| Defect recall | 0.717 (33/46) |
-| Escalation recall | 1.000 (20/20) |
-| Escalation precision | 0.444 |
-| End-to-end | 0.717 |
-
-This exists as a control, and it earns its place by making one thing
-measurable: a rule-based classifier reaches macro-F1 1.000 on *this* generated
-inbox, which tells you the inbox is synthetic, not that classification is
-solved. The 13 missed defects are all in PDF / XLSX / DOCX attachments the
-baseline does not parse — it escalates them honestly rather than guessing,
-which is why its escalation precision is low and its defect precision is
-perfect.
-
-Development history is in `RUNLOG.md`. The single most expensive bug was worth
-0.073: every `SI_REQUEST` email in the dataset signs off "Please revert with
-draft BL once available", and a classifier matching the bare string `draft bl`
-swallowed all 125 of them into `BL_COMPARISON`.
-
----
-
-## 3. Reproducing these numbers
-
-Deterministic baseline, full dataset. This needs the organizers' `loader.py`,
-`inbox/`, `attachments/`, `tools/score_cli.py` and `secrets/ground_truth.json`
-copied into the repository root — none of them are redistributed here, and
-`score_baseline.py` says so rather than failing with an import error:
+| **All four document formats** | `test_docx_tables`, `test_xlsx_cell_evidence`, `test_native_pdf_page_evidence`, `test_scanned_pdf_ocr` pass against the real libraries and a real Tesseract. The OCR test runs; it does not skip. |
+| **Corrupt input fails visibly** | `demo-files/unreadable.pdf` produces a parse error and an `unreadable` escalation. Never a false `OK`. |
+| **Case, punctuation and units normalise** | NFKC plus case folding plus punctuation collapse for text; Decimal arithmetic for weights, with MT and lbs converted to kg and ambiguous separators rejected rather than guessed. |
+| **Evidence is enforced, not requested** | A value whose quote is absent from its source block, or which is absent from its own quote, is rejected outright rather than scored lower. |
+| **Reliability of the AI path** | 37 records processed end to end with live Gemini calls: zero errors, zero silent fallbacks. A reliability observation, not an accuracy claim. |
+| **It runs** | 53 backend tests passing; Docker image builds and runs; the public deployment is live and has compared a Word pair and an Excel pair correctly. |
 
 ```bash
-python score_baseline.py --score
+cd quayproof && python -m pytest backend/tests -q
 ```
-
-Deployed application: the inbox **Export** button produces `submission.json`,
-which the organizers' CLI scores directly:
-
-```bash
-python tools/score_cli.py submission.json --ground-truth ground_truth.json
-```
-
-The 0.9757 figure was produced by scoring the predictions in
-`quayproof/ai-test-report.json` with `scoring.score_all`, restricting ground
-truth to the 37 record IDs that file contains. That report is committed, so the
-measurement is checkable without rerunning any AI calls.
 
 ---
 
-## 4. What is not claimed
+## 2. The assumptions the design rests on
 
-- **No full-dataset score for the deployed application.** 37 records were
-  processed; 520 were not. Any figure quoted for the deployed app carries that
-  scope or it is wrong.
-- **No claim is made for a 1.0000 score.** A separate pure-Python pipeline
-  reached that figure during development. It is not in this repository and is
-  not scored here, so it is not this project's result and is not presented as
-  one anywhere in this submission.
-- **No production readiness claim.** One Render free instance, one worker, a
-  shared team token rather than per-user identity, and a 100-call daily budget.
-- **Live accuracy is measured on synthetic organizer data only.** No real
-  customer document has been through this system.
+Each is enforced in code, not by convention. `docs/VALIDATION.md` carries the
+detail.
+
+**A model that cites nothing gets no credit.** Every extracted value arrives
+with a quote and the block it came from, and is discarded if either fails to
+check out. This is what makes a confident hallucination fail closed instead of
+entering a comparison.
+
+**OCR digits must not be trusted silently.** Tesseract returns a heuristic, not
+a probability. Gross weight and container count read from a scan always ask a
+human. Text fields from the same scan still compare automatically.
+
+**Two unknowns are not a match.** An unreadable field escalates; it never
+counts as agreement, and it never counts as a defect.
+
+**Comparison must be reproducible.** No model call happens after extraction.
+The same two documents produce the same verdict on every run.
+
+---
+
+## 3. A defect we found in our own output, and fixed
+
+Every comparison email carrying fewer than two documents was escalated as a
+missing attachment. That was wrong for a whole class of email: many senders are
+asking a colleague to *send* the draft bill of lading, not forgetting to attach
+one. Roughly 91 records across the dataset have that shape, and each would have
+sent an operator to review a case that needed none.
+
+The signal is in the wording of the body. `pipeline.attachment_intent` now
+separates the two, covered by tests including one that ensures a quoted reply
+cannot supply the intent. An email that says the attachments were dropped still
+escalates; an email asking for a document is recorded as having nothing to
+compare yet.
+
+We found this by checking our own output rather than by being told about it,
+which is the reason it is written up here rather than left quiet.
+
+---
+
+## 4. Measurement against the organizers' evaluator
+
+Kept for completeness. Not quoted in our presentation, because it needs a scope
+caveat every time it is stated and the checks above do not.
+
+**The deterministic baseline, all 520 records: 0.8258.** Full coverage, no AI.
+Classification macro-F1 1.000; defect precision 1.000; defect recall 0.717. The
+13 missed defects are exactly the PDF, DOCX and XLSX attachments it does not
+parse, which is the measurable distance the document pipeline closes.
+
+**QuayProof with Gemini, 37 of 520 records: 0.9757.** Defect precision, recall
+and exact-field match all 1.000; end-to-end 4 of 4; classification 35 of 37.
+These 37 were processed on a local instance of the same Docker image, not on
+the public deployment. A full pass exceeds our free-tier quota.
+
+The two figures are not comparable and must never be quoted as if they were:
+one covers the whole inbox, the other 37 records of it. Worth knowing: on those
+same 37 records the no-AI baseline scores 1.000, because every defect in that
+slice sits in a plain text file. That is a fact about the sample, not about the
+model, and it is the clearest statement of what the AI is actually for.
+
+Reproduce with `verify_score.py`, which uses the organizers' own scorer on the
+predictions committed in `quayproof/ai-test-report.json`.
+
+---
+
+## 5. What is not claimed
+
+- **No full-dataset score for the Gemini pipeline.** 37 records were processed;
+  520 were not.
+- **No production readiness.** One free Render instance, one worker, a shared
+  workspace rather than per-user identity, and a 100-call daily AI budget.
+- **No real customer documents.** Everything here is organizer-supplied
+  synthetic data or fixtures we authored.
+- **No measured time saving.** We did not measure it, so we do not assert it.

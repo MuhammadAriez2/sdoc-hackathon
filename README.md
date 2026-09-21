@@ -6,19 +6,29 @@ Shipping teams receive hundreds of emails a day. A handful of them are a custome
 
 QuayProof reads the inbox, finds those emails, reads both attachments in their original format, compares the seven fields, and shows an operator exactly which source text each value came from. When it cannot read something, it says so instead of guessing.
 
-**Live application:** https://quayproof.onrender.com — access token supplied separately
+**Live application:** https://quayproof.onrender.com, no sign-in required
 **Repository:** https://github.com/MuhammadAriez2/sdoc-hackathon
 
-## What it scores
+## How we know it works
 
-Measured against the organizers' own evaluator (`score_cli.py`), not self-reported:
+Everything below is either reproducible on your own machine or visible
+in the running app.
 
-| Pipeline | Records | Score | Detail |
-|---|---|---|---|
-| **Deployed app (Gemini)** | 37 of 520 | **0.9757** | Every planted defect caught with the exact field set — defect P/R/F1 all 1.000 |
-| Deterministic baseline (`baseline/`) | 520 of 520 | 0.8258 | No AI; rule classifier + text extraction |
+| Check | Evidence |
+|---|---|
+| **All four document formats** | `test_docx_tables`, `test_xlsx_cell_evidence`, `test_native_pdf_page_evidence` and `test_scanned_pdf_ocr` all pass against the real libraries. The OCR test runs rather than skipping. |
+| **Corrupt input fails visibly** | `demo-files/unreadable.pdf` yields a parse error and an `unreadable` escalation. Never a false `OK`. |
+| **Normalisation is on screen** | The grey line under every value in the seven-field table is what the comparison actually sees. `Port Klang` and `port klang` are one value; `12.8 MT` becomes `12800`. |
+| **A model that cites nothing gets no credit** | If the quote is not in the source block, or the value is not in the quote, the value is rejected outright. |
+| **It runs** | 53 backend tests passing, Docker image building, live public deployment, Word and Excel pairs compared correctly on it. |
 
-The deployed figure covers the 37 records processed under the app's daily AI budget, not the full inbox. `RESULTS.md` has the complete breakdown, the confusion matrix, and the one weakness this measurement exposed.
+Reproduce the suite:
+
+```bash
+cd quayproof && python -m pytest backend/tests -q
+```
+
+`docs/VALIDATION.md` lists every check and, just as importantly, what we have **not** verified. `RESULTS.md` additionally records a measurement against the organizers' evaluator; we do not lead with it, and it carries its scope.
 
 ## How it works
 

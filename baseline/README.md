@@ -4,10 +4,13 @@ A rule-based classifier and plain text extraction over the same 520-record
 inbox, scored by the same evaluator. **This is a control, not a product. The
 submission is QuayProof, in `quayproof/`.**
 
-| | Records | Score |
+| | Records | Final |
 |---|---|---|
 | This baseline | 520 of 520 | 0.8258 |
 | QuayProof (Gemini) | 37 of 520 | 0.9757 |
+
+*Not comparable figures: one covers the whole inbox, the other 37 records
+of it. See `../RESULTS.md` section 4.*
 
 It exists to answer one question: what did the AI actually buy? Without a
 control, "we used a model" is an assertion. With one, the difference is
