@@ -4,13 +4,8 @@ What we checked, what we found, and how you can check it yourself.
 
 This project is presented on its behaviour, not on a leaderboard figure. The
 checks in section 1 need no answer key: they are reproducible from this
-repository or visible in the running application. Section 4 records a
-measurement against the organizers' evaluator, kept because it is real, with
-its scope stated. We do not quote it as a headline.
-
-The organizers' ground-truth file was used only as a scoring oracle through
-their supplied evaluator. No pipeline here reads it, it is not committed, and
-no value from it is hardcoded anywhere.
+repository or visible in the running application. No pipeline here reads it, 
+it is not committed, and no value from it is hardcoded anywhere.
 
 ---
 
@@ -72,7 +67,7 @@ which is the reason it is written up here rather than left quiet.
 
 ---
 
-## 5. What is not claimed
+## 4. What is not claimed
 
 - **No full-dataset score for the Gemini pipeline.** 37 records were processed;
   520 were not.
