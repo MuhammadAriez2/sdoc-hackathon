@@ -113,12 +113,15 @@ def compare(case):
     docs = [d for d in case['documents'] if d['active']]
     reason = None
     if len(docs) < 2:
-        base.update(
-        status='NEEDS_REVIEW',
-        review_reason='missing_attachment',
-        requires_review=True,
-    )
-        return base
+        reason, note = attachment_intent(case, len(docs))
+        if not reason:
+            base.update(
+                status='OK',
+                comparison_complete=True,
+                review_note=note,
+            )
+            return base
+
     elif any(d.get('parse_error') for d in docs):
         reason = next(
             d['parse_reason']
