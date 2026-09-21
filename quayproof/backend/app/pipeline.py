@@ -69,11 +69,11 @@ def observation(candidate, doc, *, human=False):
         value = normalize(candidate['field'], raw, source)
     except ValueError as exc:
         reason = reason or str(exc)
-    return dict(field=candidate['field'], raw_value=raw, normalized_value=value, unit='kg' if candidate['field']=='gross_weight_kg' else None,
+    return dict(field=candidate['field'], raw_value=raw, normalized_value=value, unit='kg' if candidate['field'] == 'gross_weight_kg' else None,
                 document_id=doc['id'], document_hash=doc['sha256'], document_version=doc['revision'], block_ids=ids, quote=quote,
                 locations=[b['location'] for b in selected], confidence='human-confirmed' if human and not reason else 'review' if reason else 'supported',
                 quality_signals={'source_verified':not reason if value is None else bool(raw and quote in source and raw in quote), 'minimum_ocr_confidence':quality if ocr else None, 'ocr':ocr},
-                usable=reason is None, escalation_reason=reason, method='human' if human else doc.get('extraction_version','unknown'))
+                usable=reason is None, escalation_reason=reason, method='human' if human else doc.get('extraction_version', 'unknown'))
 
 
 def validate_extraction(doc, extraction):
@@ -113,20 +113,26 @@ def compare(case):
     docs = [d for d in case['documents'] if d['active']]
     reason = None
     if len(docs) < 2:
-        reason, note = attachment_intent(case, len(docs))
-        if not reason:
-            base.update(status='OK', comparison_complete=True, review_note=note)
-            return base
+        base.update(
+        status='NEEDS_REVIEW',
+        review_reason='missing_attachment',
+        requires_review=True,
+    )
+        return base
     elif any(d.get('parse_error') for d in docs):
-        reason = next(d['parse_reason'] for d in docs if d.get('parse_error'))
-    si, bl = [d for d in docs if d.get('doc_type')=='SI'], [d for d in docs if d.get('doc_type')=='BL']
-    if not reason and (len(si)!=1 or len(bl)!=1 or len(docs)!=2):
+        reason = next(
+            d['parse_reason']
+            for d in docs
+            if d.get('parse_error')
+        )
+    si, bl = [d for d in docs if d.get('doc_type') == 'SI'], [d for d in docs if d.get('doc_type') == 'BL']
+    if not reason and (len(si) != 1 or len(bl) != 1 or len(docs) != 2):
         reason = 'wrong_doc_type'
     if reason:
         base.update(status='NEEDS_REVIEW', review_reason=reason, requires_review=True)
         return base
     for field in FIELDS:
-        left, right = si[0].get('fields',{}).get(field), bl[0].get('fields',{}).get(field)
+        left, right = si[0].get('fields', {}).get(field), bl[0].get('fields', {}).get(field)
         if not left or not right or not left['usable'] or not right['usable']:
             outcome = 'UNKNOWN'; base['unknown_fields'].append(field)
         elif left['normalized_value'] == right['normalized_value']:
@@ -145,9 +151,11 @@ def compare(case):
 
 
 def process(case, store, provider, settings):
+
     def checkpoint(stage):
-        case.update(stage=stage, lease_until=time.time()+1800)
+        case.update(stage=stage, lease_until=time.time() + 1800)
         store.save(case, case['version'])
+
     if case.get('provider_version') != provider.version:
         case['classification'] = None
         for d in case['documents']:
@@ -160,23 +168,23 @@ def process(case, store, provider, settings):
         checkpoint('classified')
     if case['classification']['category'] == 'BL_COMPARISON' and not case['classification']['uncertain']:
         for document_id in [d['id'] for d in case['documents'] if d['active']]:
-            doc = next(d for d in case['documents'] if d['id']==document_id)
+            doc = next(d for d in case['documents'] if d['id'] == document_id)
             if not doc.get('blocks') and not doc.get('parse_error'):
                 try:
                     doc['blocks'] = parse_document(doc['name'], store.read_file(doc['id']), settings)
                 except DocumentError as exc:
                     doc.update(parse_error=str(exc), parse_reason=exc.reason)
-                checkpoint('parsed '+doc['name'])
+                checkpoint('parsed ' + doc['name'])
                 # A REST checkpoint replaces nested objects with a decoded JSON snapshot.
-                doc = next(d for d in case['documents'] if d['id']==document_id)
+                doc = next(d for d in case['documents'] if d['id'] == document_id)
             if doc.get('blocks') and doc.get('extraction_version') != provider.version:
                 extraction = provider.extract(doc['blocks'], case['cloud_permitted'])
                 doc['extraction_version'] = provider.version
                 validate_extraction(doc, extraction)
-                checkpoint('extracted '+doc['name'])
+                checkpoint('extracted ' + doc['name'])
     case['result'] = compare(case)
     case.update(state='complete', stage='complete', error=None, lease_until=0, approved=False)
-    case.setdefault('history', []).append({'at':time.time(),'action':'comparison','provider_version':provider.version,'result':copy.deepcopy(case['result'])})
+    case.setdefault('history', []).append({'at':time.time(), 'action':'comparison', 'provider_version':provider.version, 'result':copy.deepcopy(case['result'])})
     store.save(case, case['version'])
 
 
@@ -197,7 +205,7 @@ def worker_loop(stop, store, provider, settings):
             logging.warning('Processing failed: %s', type(exc).__name__)
             if case:
                 retry = isinstance(exc, ProviderError) and exc.retryable and case['attempts'] < 3
-                case.update(state='queued' if retry else 'failed', stage='retry_wait' if retry else 'failed', next_attempt=time.time()+30*case['attempts'], lease_until=0,
+                case.update(state='queued' if retry else 'failed', stage='retry_wait' if retry else 'failed', next_attempt=time.time() + 30 * case['attempts'], lease_until=0,
                             error=str(exc) if isinstance(exc, (ProviderError, DocumentError)) else 'Processing infrastructure failed; check server configuration and retry', result=None)
                 try:
                     store.save(case, case['version'])
