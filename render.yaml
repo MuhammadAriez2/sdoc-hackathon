@@ -2,6 +2,7 @@ services:
   - type: web
     name: quayproof
     runtime: docker
+    rootDir: quayproof
     plan: free
     healthCheckPath: /api/health
     envVars:
@@ -25,5 +26,3 @@ services:
         value: "10"
       - key: ENABLE_WORKER
         value: "true"
-    # After the initial deployment, set Gemini's server-side key/model and
-    # AI_PROVIDER=gemini in Render. Never put them in frontend VITE_* variables.
