@@ -13,6 +13,58 @@ class ProviderError(RuntimeError):
         self.retryable = retryable
 
 
+def gemini_response_schema(model):
+    """Use a small, inline wire schema; keep full Pydantic validation locally.
+
+    The extraction model has nested $refs and bounded arrays, unlike the
+    classification model. Some Gemini deployments reject that schema with a
+    generic INVALID_ARGUMENT. Expand local references and send only the basic
+    shape, enums and required keys. Length limits and extra-field rejection
+    still run in model_validate_json below, before any result is accepted.
+    """
+    source = model.model_json_schema()
+
+    def expand(node, seen=()):
+        if '$ref' in node:
+            ref = node['$ref']
+            if not isinstance(ref, str) or not ref.startswith('#/') or ref in seen:
+                raise ProviderError('Gemini response schema has an unsupported reference')
+            target = source
+            try:
+                for part in ref[2:].split('/'):
+                    target = target[part.replace('~1', '/').replace('~0', '~')]
+            except (KeyError, TypeError) as exc:
+                raise ProviderError('Gemini response schema has an unresolved reference') from exc
+            merged = {**target, **{k: v for k, v in node.items() if k != '$ref'}}
+            return expand(merged, seen + (ref,))
+
+        result = {k: node[k] for k in ('type', 'enum', 'required', 'description') if k in node}
+        if 'properties' in node:
+            result['properties'] = {k: expand(v, seen) for k, v in node['properties'].items()}
+        if 'items' in node:
+            result['items'] = expand(node['items'], seen)
+        if 'anyOf' in node:
+            result['anyOf'] = [expand(v, seen) for v in node['anyOf']]
+        return result
+
+    return expand(source)
+
+
+def provider_error_detail(response, secret=''):
+    """Expose only the provider's error message, with credentials redacted."""
+    try:
+        error = response.json().get('error', {})
+        message = error.get('message', '') if isinstance(error, dict) else ''
+    except (ValueError, AttributeError):
+        return ''
+    if not isinstance(message, str):
+        return ''
+    if secret:
+        message = message.replace(secret, '[REDACTED]')
+    message = re.sub(r'AIza[A-Za-z0-9_-]{20,}', '[REDACTED]', message)
+    return ' '.join(message.split())[:600]
+
+
 ALIASES = {
     'shipper': ['shipper', 'exporter', '发货人'],
     'consignee': ['consignee', 'receiver', '收货人'],
@@ -66,6 +118,8 @@ class Provider:
         self.settings, self.store = settings, store
         model = settings.gemini_model if settings.provider == 'gemini' else settings.ollama_model
         self.version = f'{PIPELINE_VERSION}:{settings.provider}:{model}:prompt-1'
+        if settings.provider == 'gemini':
+            self.version += ':gemini-schema-2'
 
     def ask(self, instruction, data, schema, permitted):
         s = self.settings
@@ -76,7 +130,8 @@ class Provider:
                 raise ProviderError('Set GEMINI_API_KEY and an available GEMINI_MODEL in .env')
             url = f'https://generativelanguage.googleapis.com/v1beta/models/{s.gemini_model}:generateContent'
             headers = {'x-goog-api-key': s.gemini_key}
-            payload = {'systemInstruction': {'parts': [{'text': instruction}]}, 'contents': [{'role':'user','parts':[{'text':json.dumps(data, ensure_ascii=False)}]}], 'generationConfig': {'responseMimeType':'application/json', 'responseJsonSchema': schema.model_json_schema(), 'temperature':0, 'maxOutputTokens':8192}}
+            wire_schema = gemini_response_schema(schema) if schema is Extraction else schema.model_json_schema()
+            payload = {'systemInstruction': {'parts': [{'text': instruction}]}, 'contents': [{'role':'user','parts':[{'text':json.dumps(data, ensure_ascii=False)}]}], 'generationConfig': {'responseMimeType':'application/json', 'responseJsonSchema': wire_schema, 'temperature':0, 'maxOutputTokens':8192}}
         else:
             if not s.ollama_model:
                 raise ProviderError('Set OLLAMA_MODEL to a locally installed model')
@@ -91,7 +146,10 @@ class Provider:
             if response.status_code >= 500:
                 raise ProviderError('AI provider is temporarily unavailable', True)
             if response.status_code != 200:
-                raise ProviderError(f'AI provider rejected the request (HTTP {response.status_code}); check model access and configuration')
+                stage = 'document extraction' if schema is Extraction else 'email classification'
+                detail = provider_error_detail(response, s.gemini_key)
+                raise ProviderError(f'AI provider rejected {stage} (HTTP {response.status_code})'
+                                    + (f': {detail}' if detail else '; check model access and configuration'))
             obj = response.json()
             if s.provider == 'gemini':
                 text = ''.join(p.get('text', '') for p in obj['candidates'][0]['content']['parts'] if not p.get('thought'))
