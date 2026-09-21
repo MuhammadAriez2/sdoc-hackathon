@@ -146,33 +146,13 @@ If the built-in nine cases already exist, **Load demo inbox does not reset them*
 
 **Data restriction:** Google's unpaid-service terms restrict sensitive, confidential and personal inputs, and describe use of submissions for product improvement and possible human review. Do not upload the participant bundle unchanged merely because you have a competition copy. Use synthetic data, or obtain authorization and properly sanitize it. The backend checks `cloud_permitted` before making Gemini calls. That checkbox records a user declaration; it is not automated anonymization or a legal determination. [Gemini API terms](https://ai.google.dev/gemini-api/terms)
 
-### Option B: Ollama on a team laptop
+### Option B: a local model instead
 
-Use the native development setup so the backend can reach Ollama on the same machine. Install [Ollama](https://ollama.com/download). A concrete starting model is `qwen2.5:7b`; its listed download is about 4.7 GB and it uses the Apache 2.0 license. Actual RAM use, speed and extraction quality depend on hardware and context length. Test before choosing it for judging. [Model page](https://ollama.com/library/qwen2.5:7b)
-
-```bash
-ollama pull qwen2.5:7b
-```
-
-Run the **Ollama server process** with cloud features disabled. On macOS/Linux, quit an existing app-managed server before starting:
-
-```bash
-OLLAMA_NO_CLOUD=1 ollama serve
-```
-
-On PowerShell, set `$env:OLLAMA_NO_CLOUD="1"` before starting `ollama serve`. If you use a managed Ollama service instead, configure its environment and restart that service. Do not start a second server on an already occupied port.
-
-Root `.env`:
-
-```dotenv
-AI_PROVIDER=ollama
-OLLAMA_URL=http://localhost:11434
-OLLAMA_MODEL=qwen2.5:7b
-```
-
-Restart QuayProof and run a synthetic case. This adapter uses local `/api/chat` with a JSON schema. No Gemini key is needed. This avoids API usage charges but uses your hardware. Keep Ollama bound to the local machine; do not expose its unauthenticated API publicly. [Structured output documentation](https://docs.ollama.com/capabilities/structured-outputs)
-
-Running Ollama inside the small free Render instance is outside this starter's supported configuration. For the public demo, use permitted synthetic inputs with Gemini or an explicitly approved alternative.
+`providers.py` also ships an Ollama adapter that posts to a local `/api/chat`
+endpoint with the same JSON schema, so the pipeline is not coupled to one
+vendor. It was not used for this submission, has no test coverage, and has
+never been executed — see `docs/VALIDATION.md`. Gemini is the provider the
+measured results come from.
 
 ## 4. Connect Supabase for durable cloud state
 
