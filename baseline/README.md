@@ -19,9 +19,17 @@ is generated. Knowing that changes how much weight the 0.9190 macro-F1 in
 `RESULTS.md` deserves, and it is not something you can learn without building
 the baseline.
 
-Where it loses: 13 defects in PDF, XLSX and DOCX attachments it cannot parse.
-It escalates them rather than guessing, which is why its defect precision is
-1.000 and its escalation precision is 0.444.
+## Scope: plain text only
+
+This baseline reads `.txt` and nothing else. PDF, XLSX and DOCX return
+`unreadable` and escalate. That is a design decision, not unfinished work:
+parsing binary formats is QuayProof's job, and a control that duplicated those
+parsers would stop measuring the thing it exists to measure.
+
+The cost is 13 of the dataset's 46 defects, and the cost is the point — it is
+the measurable distance the document pipeline in `quayproof/` closes. It is
+also why this baseline's defect precision is 1.000 while its escalation
+precision is 0.444: it never invents a reading it cannot support.
 
 ## Running it
 

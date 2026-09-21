@@ -19,10 +19,13 @@ lading", which contains "shipping instruction". If you test for SI_REQUEST
 before BL_COMPARISON you will misroute a large chunk of the most valuable
 category. That single ordering bug is worth ~0.15 of the final score.
 
-TEAM (track A): this is your file. The `_llm_classify` hook at the bottom is
-where the model goes. Measure with:
-    python run.py && python tools/score_cli.py submission.json --ground-truth secrets/ground_truth.json
-and watch stage1 macro-F1.
+The `_llm_classify` hook at the bottom is the seam where a model would take
+the residue. It stays unused: this baseline is deterministic by definition,
+and the model-backed classifier it would have become is QuayProof's, in
+`quayproof/backend/app/providers.py`.
+
+Measured with:
+    python score_baseline.py --score
 """
 
 import re
@@ -186,18 +189,17 @@ def classify(email: dict):
 
 
 def _llm_classify(email: dict):
-    """TODO (track A): send the residue to a model.
+    """The seam where a model would take the residue. Intentionally inert.
 
-    Keep it cheap and structured:
-      - send subject + the FIRST message segment only (strip quoted history)
-      - constrain the response to the five category strings
-      - cache on a hash of the input so re-runs are free
+    This baseline is the no-AI control; adding a model here would make it a
+    second copy of QuayProof and stop it measuring anything. The residue
+    therefore falls back to GENERAL, which is the least damaging wrong answer:
+    it is the largest of the non-document categories and it does not pull a
+    real comparison request out of the pipeline.
 
-    Until that exists we fall back to GENERAL, which is the least damaging
-    wrong answer: it is the largest of the non-document categories and it does
-    not pull a real comparison request out of the pipeline.
-
-    Return ("<CATEGORY>", "llm") once implemented, so the scorer's rule_pct
-    reflects reality.
+    The model-backed version of this decision — structured output, quoted
+    history stripped, response constrained to the five categories, evidence
+    excerpt verified against the source — is `Provider.classify` in
+    `quayproof/backend/app/providers.py`.
     """
     return "GENERAL", "rule"

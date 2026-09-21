@@ -24,9 +24,11 @@ from .compare import compare
 # classification and escalation precision. The difference is entirely in the
 # wording of the body.
 #
-# TODO (track A): this is brittle string matching. It is a good candidate for
-# the LLM - "did the sender believe they attached documents?" is exactly the
-# kind of intent question a model is better at than a keyword list.
+# This is deliberately string matching, and deliberately narrow. QuayProof
+# solves the same problem in `pipeline.attachment_intent`, where it is still
+# rules rather than a model: "did the sender believe they attached documents?"
+# has to be reproducible, because it decides whether an operator is sent to
+# review a case that was never broken.
 ATTACHMENT_EXPECTED = (
     "appear to have been dropped",
     "still missing",

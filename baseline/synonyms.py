@@ -20,9 +20,11 @@ Exact lookup on a normalised key is both safer and easier to debug than fuzzy
 matching, and when a new label shows up you get a clean miss instead of a
 silent wrong answer.
 
-TEAM: this file is APPEND-ONLY and shared. When you meet a label that isn't
-here, add it - don't restructure the file, or you'll collide with whoever else
-is editing it right now.
+The table below is append-only by convention: a new label is a new row, never
+a restructure, so that a miss stays traceable to the exact label that caused
+it. It covers the labels reachable from the plain-text documents this baseline
+parses, not all ~60 in the dataset — the rest live in the PDF, DOCX and XLSX
+files that are out of scope here.
 """
 
 import re

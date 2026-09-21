@@ -5,18 +5,24 @@ The whole rest of the pipeline goes through this one function and never learns
 what file type it was looking at. That is the seam that lets the four
 extractors be built in parallel and swapped independently.
 
-STATUS
-------
-    .txt    DONE
-    .xlsx   TODO - track B
-    .pdf    TODO - track C
-    .docx   TODO - track C
+SCOPE: PLAIN TEXT ONLY
+----------------------
+    .txt    parsed
+    .xlsx   returns unreadable, by design
+    .pdf    returns unreadable, by design
+    .docx   returns unreadable, by design
 
-The TODOs currently return `unreadable`, which makes those emails escalate to
-NEEDS_REVIEW instead of producing a wrong answer. That is deliberate: an
-honest "I cannot read this yet" scores better than a guess, and it means the
-pipeline is correct end-to-end from the first run - you are improving
-coverage, never fixing broken plumbing.
+Parsing PDF, XLSX and DOCX is QuayProof's job. Duplicating those parsers here
+would defeat the purpose of a control: the gap between this baseline and the
+application is the measurement, so closing it in the control destroys the very
+thing the control exists to show.
+
+Binary formats therefore return `unreadable`, which escalates to NEEDS_REVIEW
+rather than guessing. That costs 13 of the 46 defects in the dataset, and the
+cost is the point — it is the measurable distance the document pipeline in
+`quayproof/` closes. It is also why this baseline's defect precision is 1.000
+while its escalation precision is 0.444: it never invents a reading it cannot
+support.
 """
 
 import os
@@ -69,79 +75,59 @@ def _extract_txt(full: str, doc_role: str, path: str) -> Extracted:
 
 
 # ---------------------------------------------------------------------------
-# .xlsx - TODO (track B)
+# .xlsx - out of scope for the control
 # ---------------------------------------------------------------------------
 
 def _extract_xlsx(full: str, doc_role: str, path: str) -> Extracted:
-    """TODO: read the workbook and join each row into 'Label: value' text.
+    """Not parsed here. Spreadsheet extraction belongs to QuayProof.
 
-    Sketch - this is genuinely most of it:
+    `quayproof/backend/app/parsers.py` reads XLSX with openpyxl in read-only
+    mode, keeps the worksheet and contributing cell coordinates as evidence,
+    and refuses formula cells outright rather than trusting a cached value.
+    None of that is reproduced here, deliberately.
 
-        import openpyxl
-        wb = openpyxl.load_workbook(full, data_only=True)
-        lines = []
-        for ws in wb:
-            for row in ws.iter_rows(values_only=True):
-                cells = [str(c).strip() for c in row if c is not None]
-                if len(cells) >= 2:
-                    lines.append(f"{cells[0]}: {' '.join(cells[1:])}")
-                elif cells:
-                    lines.append(cells[0])
-        return parse_labelled_text("\\n".join(lines), doc_role, path)
-
-    Watch out for: weights arriving as bare numbers with no unit and no
-    thousands separator (341715), and labels living in column A with the value
-    spread across B and C. Add any new labels you meet to src/synonyms.py.
+    Two traps it has to handle that a naive reader would not: weights arrive
+    as bare numbers with no unit and no thousands separator (341715), and a
+    label can sit in column A with its value spread across B and C.
     """
-    return unreadable(doc_role, path, "xlsx extractor not implemented yet")
+    return unreadable(doc_role, path, "xlsx is out of scope for the baseline")
 
 
 # ---------------------------------------------------------------------------
-# .pdf - TODO (track C)
+# .pdf - out of scope for the control
 # ---------------------------------------------------------------------------
 
 def _extract_pdf(full: str, doc_role: str, path: str) -> Extracted:
-    """TODO: pdfplumber, then the same parser.
+    """Not parsed here. PDF extraction belongs to QuayProof.
 
-        import pdfplumber
-        with pdfplumber.open(full) as pdf:
-            text = "\\n".join(p.extract_text() or "" for p in pdf.pages)
-        if len(text.strip()) < 20:
-            return unreadable(doc_role, path, "image-only PDF, no text layer")
-        return parse_labelled_text(text, doc_role, path)
+    `quayproof/backend/app/parsers.py` takes native text first via pdfplumber,
+    keeps per-line bounding boxes, and falls back to Tesseract only for pages
+    with no dependable text layer — retaining per-word confidence and
+    transforming OCR coordinates back through the raster scale. A page that
+    yields no characters escalates rather than being guessed at.
 
-    Two things to know before you start:
-
-    1. A PDF that yields 0 characters is one of the deliberate `unreadable`
-       cases. Escalate it. Do NOT reach for OCR as the first move - test both
-       and let the scorer decide.
-    2. The layout is column-based, so a label and its value can end up on the
-       same line separated by wide spaces rather than a colon. You may need a
-       second pattern for "LABEL<lots of spaces>VALUE" alongside "Label: value".
+    The layout here is column-based, so a label and its value can share a line
+    separated by wide spaces rather than a colon — which is why coordinates,
+    not just text, matter for this format.
     """
-    return unreadable(doc_role, path, "pdf extractor not implemented yet")
+    return unreadable(doc_role, path, "pdf is out of scope for the baseline")
 
 
 # ---------------------------------------------------------------------------
-# .docx - TODO (track C)
+# .docx - out of scope for the control
 # ---------------------------------------------------------------------------
 
 def _extract_docx(full: str, doc_role: str, path: str) -> Extracted:
-    """TODO: python-docx. Every DOCX here puts the fields in a TABLE, so a
-    paragraph-only reader will find nothing.
+    """Not parsed here. DOCX extraction belongs to QuayProof.
 
-        import docx
-        d = docx.Document(full)
-        lines = [p.text for p in d.paragraphs if p.text.strip()]
-        for table in d.tables:
-            for row in table.rows:
-                cells = [c.text.strip() for c in row.cells if c.text.strip()]
-                if len(cells) >= 2:
-                    lines.append(f"{cells[0]}: {cells[1]}")
-        return parse_labelled_text("\\n".join(lines), doc_role, path)
+    `quayproof/backend/app/parsers.py` walks paragraphs and tables separately
+    with python-docx, keeping the table and row number as evidence — which
+    matters because every DOCX in this dataset puts the fields in a TABLE, so
+    a paragraph-only reader finds nothing at all.
 
-    The labels are bilingual - "PORT OF LOADING (装货港)". normalise_label()
-    in src/synonyms.py already strips the bracket and the CJK characters, so
-    they should map without extra work. Verify rather than assume.
+    Its labels are bilingual — "PORT OF LOADING (装货港)". `normalise_label` in
+    `baseline/synonyms.py` already strips the bracket and the CJK characters,
+    so the synonym table would cope; the file format is the obstacle, not the
+    vocabulary.
     """
-    return unreadable(doc_role, path, "docx extractor not implemented yet")
+    return unreadable(doc_role, path, "docx is out of scope for the baseline")

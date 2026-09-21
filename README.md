@@ -279,7 +279,7 @@ It seeds the synthetic demo, checks mismatch evidence and blocked approval, capt
 | OCR missing / timed out | Check Tesseract/language pack, try Docker, or provide a smaller/readable revision. |
 | Unknown fields in scanned PDF | Critical OCR digits deliberately need human confirmation against the source evidence. |
 | Case stays processing after host restart | Its 30-minute lease must expire before automatic reclamation; keep the service active and inspect status. |
-| Correct value rejected by reviewer API | Correction must be an exact substring of the selected source blocks. Wrong OCR needs a readable revision in this starter. |
+| Correct value rejected by reviewer API | Correction must be an exact substring of the selected source blocks. Wrong OCR needs a readable revision; correcting OCR text in place is not supported. |
 | Render cold start | Allow the service to wake and verify Supabase is active before the demonstration. |
 | Export blocked | Resolve failed/pending processing, category uncertainty and mixed defect/unknown cases. |
 

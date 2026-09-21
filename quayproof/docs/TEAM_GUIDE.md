@@ -19,7 +19,7 @@ Suggested hours: integration and environment verification 12; parser/prompt impr
 2. Make a single permitted synthetic Gemini call and inspect its structured classification and field evidence. Check quota before any batch run.
 3. Run the same request through local Ollama if confidentiality or Gemini access is a blocker. Measure latency instead of assuming the laptop is fast enough.
 4. Create Supabase, run the schema and verify upload → restart → download on synthetic data.
-5. Deploy the starter to Render Free and test from a separate device. Check an actual OCR page on the free instance; memory and latency are unverified until then.
+5. Deploy to Render Free and test from a separate device. Check an actual OCR page on the free instance; memory and latency are unverified until then.
 6. Compare source text with observations on a small authorized set spanning TXT, tables, scans, missing values and misleading subjects. Record failures without guessing organizer answers.
 
 The first viability experiment is one complete live-AI SI/BL comparison on each important input format, with every accepted value traced to the correct source and known synthetic mutations caught. Stop adding features if this fails; improve parsing/evidence first.
