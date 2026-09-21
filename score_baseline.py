@@ -2,9 +2,9 @@
 """
 Entry point. Reads the inbox, runs the pipeline, writes submission.json.
 
-    python run.py                 # process everything
-    python run.py --score         # ...then score it
-    python run.py --email 004     # debug one email, verbosely
+    python score_baseline.py                 # process everything
+    python score_baseline.py --score         # ...then score it
+    python score_baseline.py --email 004     # debug one email, verbosely
 
 The --score flag is the important one. Run it after every change. You have an
 objective number available in two seconds; teams that check once a day tune
@@ -19,8 +19,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from src.pipeline import run_all, process
-from src.contracts import COMPARE_FIELDS
+from baseline.pipeline import run_all, process
+from baseline.contracts import COMPARE_FIELDS
 
 try:
     from loader import Inbox                  # organizers' loader, unmodified

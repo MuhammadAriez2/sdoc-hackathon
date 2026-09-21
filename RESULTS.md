@@ -114,7 +114,7 @@ regardless of what it does to a leaderboard.
 
 ---
 
-## 2. Deterministic baseline — `src/`
+## 2. Deterministic baseline — `baseline/`
 
 **Score: 0.8258 across all 520 records.** No AI of any kind.
 
@@ -148,10 +148,10 @@ swallowed all 125 of them into `BL_COMPARISON`.
 Deterministic baseline, full dataset. This needs the organizers' `loader.py`,
 `inbox/`, `attachments/`, `tools/score_cli.py` and `secrets/ground_truth.json`
 copied into the repository root — none of them are redistributed here, and
-`run.py` says so rather than failing with an import error:
+`score_baseline.py` says so rather than failing with an import error:
 
 ```bash
-python run.py --score
+python score_baseline.py --score
 ```
 
 Deployed application: the inbox **Export** button produces `submission.json`,

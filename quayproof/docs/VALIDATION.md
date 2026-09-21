@@ -122,7 +122,7 @@ python -m pytest backend/tests -q
 
 # 7 — deterministic baseline against the full dataset
 cd ..
-python run.py --score
+python score_baseline.py --score
 
 # 7 — score the committed Gemini predictions without spending AI quota
 python tools/score_cli.py submission.json --ground-truth ground_truth.json

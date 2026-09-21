@@ -16,7 +16,7 @@ Measured against the organizers' own evaluator (`score_cli.py`), not self-report
 | Pipeline | Records | Score | Detail |
 |---|---|---|---|
 | **Deployed app (Gemini)** | 37 of 520 | **0.9757** | Every planted defect caught with the exact field set — defect P/R/F1 all 1.000 |
-| Deterministic baseline (`src/`) | 520 of 520 | 0.8258 | No AI; rule classifier + text extraction |
+| Deterministic baseline (`baseline/`) | 520 of 520 | 0.8258 | No AI; rule classifier + text extraction |
 
 The deployed figure covers the 37 records processed under the app's daily AI budget, not the full inbox. `RESULTS.md` has the complete breakdown, the confusion matrix, and the one weakness this measurement exposed.
 
