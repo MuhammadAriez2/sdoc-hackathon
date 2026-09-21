@@ -72,32 +72,6 @@ which is the reason it is written up here rather than left quiet.
 
 ---
 
-## 4. Measurement against the organizers' evaluator
-
-Kept for completeness. Not quoted in our presentation, because it needs a scope
-caveat every time it is stated and the checks above do not.
-
-**The deterministic baseline, all 520 records: 0.8258.** Full coverage, no AI.
-Classification macro-F1 1.000; defect precision 1.000; defect recall 0.717. The
-13 missed defects are exactly the PDF, DOCX and XLSX attachments it does not
-parse, which is the measurable distance the document pipeline closes.
-
-**QuayProof with Gemini, 37 of 520 records: 0.9757.** Defect precision, recall
-and exact-field match all 1.000; end-to-end 4 of 4; classification 35 of 37.
-These 37 were processed on a local instance of the same Docker image, not on
-the public deployment. A full pass exceeds our free-tier quota.
-
-The two figures are not comparable and must never be quoted as if they were:
-one covers the whole inbox, the other 37 records of it. Worth knowing: on those
-same 37 records the no-AI baseline scores 1.000, because every defect in that
-slice sits in a plain text file. That is a fact about the sample, not about the
-model, and it is the clearest statement of what the AI is actually for.
-
-Reproduce with `verify_score.py`, which uses the organizers' own scorer on the
-predictions committed in `quayproof/ai-test-report.json`.
-
----
-
 ## 5. What is not claimed
 
 - **No full-dataset score for the Gemini pipeline.** 37 records were processed;
