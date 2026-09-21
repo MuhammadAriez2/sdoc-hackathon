@@ -2,11 +2,11 @@
 
 **Every BL decision, backed by evidence.**
 
-Shipping teams receive hundreds of emails a day. A handful of them are a customer asking someone to check a draft Bill of Lading against the Shipping Instruction that produced it. Getting that check wrong is expensive â€” a wrong consignee or a wrong weight is a manifest correction, a delayed release, sometimes a fine. Getting it done at all means a human reading two documents side by side, in whatever format they arrived in, and comparing seven fields by eye.
+Shipping teams receive hundreds of emails a day. A handful of them are a customer asking someone to check a draft Bill of Lading against the Shipping Instruction that produced it. Getting that check wrong is expensive — a wrong consignee or a wrong weight is a manifest correction, a delayed release, sometimes a fine. Getting it done at all means a human reading two documents side by side, in whatever format they arrived in, and comparing seven fields by eye.
 
 QuayProof reads the inbox, finds those emails, reads both attachments in their original format, compares the seven fields, and shows an operator exactly which source text each value came from. When it cannot read something, it says so instead of guessing.
 
-**Live application:** https://quayproof.onrender.com â€” access token supplied separately
+**Live application:** https://quayproof.onrender.com — access token supplied separately
 **Repository:** https://github.com/MuhammadAriez2/sdoc-hackathon
 
 ## What it scores
@@ -15,7 +15,7 @@ Measured against the organizers' own evaluator (`score_cli.py`), not self-report
 
 | Pipeline | Records | Score | Detail |
 |---|---|---|---|
-| **Deployed app (Gemini)** | 37 of 520 | **0.9757** | Every planted defect caught with the exact field set â€” defect P/R/F1 all 1.000 |
+| **Deployed app (Gemini)** | 37 of 520 | **0.9757** | Every planted defect caught with the exact field set — defect P/R/F1 all 1.000 |
 | Deterministic baseline (`src/`) | 520 of 520 | 0.8258 | No AI; rule classifier + text extraction |
 
 The deployed figure covers the 37 records processed under the app's daily AI budget, not the full inbox. `RESULTS.md` has the complete breakdown, the confusion matrix, and the one weakness this measurement exposed.
@@ -23,7 +23,7 @@ The deployed figure covers the 37 records processed under the app's daily AI bud
 ## How it works
 
 ```
-email â”€â”€â–¶ classify â”€â”€â–¶ parse both attachments â”€â”€â–¶ extract 7 fields â”€â”€â–¶ compare â”€â”€â–¶ verdict
+email ──▶ classify ──▶ parse both attachments ──▶ extract 7 fields ──▶ compare ──▶ verdict
           (Gemini)      (native / OCR)             (Gemini + source    (pure Python,
                                                     verification)       no AI)
 ```
@@ -32,19 +32,19 @@ Three decisions define the system:
 
 **The comparison contains no AI.** Once both sides are extracted and normalised, comparing seven values is `==`. A model that occasionally decides `131,058 KG` differs from `131058` destroys a result you can no longer reproduce. Extraction is the hard part; comparison is deliberately the boring part.
 
-**Every extracted value must be provable.** The model returns a value, a quote, and the block IDs it came from. If the quote is not in the source block, or the value is not in the quote, the value is rejected â€” not downgraded, rejected. A confident model that cites nothing gets no credit.
+**Every extracted value must be provable.** The model returns a value, a quote, and the block IDs it came from. If the quote is not in the source block, or the value is not in the quote, the value is rejected — not downgraded, rejected. A confident model that cites nothing gets no credit.
 
 **A field we could not read is never a mismatch.** Two unknowns are not a discrepancy. Sending an operator to chase a correction that was never needed is the failure mode that makes people stop trusting the tool, so unreadable input escalates to human review with the reason attached.
 
 ## Stack
 
-React + TypeScript (Vite) â†’ FastAPI â†’ pdfplumber / python-docx / openpyxl / Tesseract â†’ Gemini â†’ deterministic comparator â†’ Supabase (Postgres + private object storage) â†’ Render.
+React + TypeScript (Vite) → FastAPI → pdfplumber / python-docx / openpyxl / Tesseract → Gemini → deterministic comparator → Supabase (Postgres + private object storage) → Render.
 
 Handles TXT, native PDF, scanned PDF via OCR, DOCX tables and XLSX sheets. Bilingual labels and ~60 field-name variants are mapped; weights normalise across kg / MT / lbs; port codes are stripped before comparison.
 
 ## Running it
 
-Full setup instructions â€” Docker, native development, AI provider, Supabase and Render â€” are below. The fastest path is Docker:
+Full setup instructions — Docker, native development, AI provider, Supabase and Render — are below. The fastest path is Docker:
 
 ```bash
 cd quayproof
@@ -54,7 +54,7 @@ docker compose up --build
 
 Then open http://localhost:8000 and click **Load demo inbox**. No API key needed for the offline demo.
 
-Tests: `python -m pytest backend/tests -q` â€” 48 passing, including all four document formats against real Tesseract.
+Tests: `python -m pytest backend/tests -q` — 48 passing, including all four document formats against real Tesseract.
 
 ---
 
@@ -184,7 +184,7 @@ Supabase's published free allowances include 500 MB database storage and 1 GB fi
 4. Supply `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. The Blueprint generates `APP_ACCESS_TOKEN`; retrieve it from service environment settings and share it privately with teammates/judges. Do not commit it to a public README.
 5. Deploy. Render builds React, installs Python/Tesseract and runs one Uvicorn worker. Check `/api/health`, open the public app URL and enter the team token.
 6. Initially the Blueprint uses `AI_PROVIDER=demo`. Once the cloud workflow is healthy, add `GEMINI_API_KEY`, `GEMINI_MODEL` and change `AI_PROVIDER=gemini` in Render. Redeploy and process a permitted synthetic case.
-7. In a fresh browser, verify inbox ΓåÆ comparison ΓåÆ evidence ΓåÆ human action. Give judges both the deployment URL and the token through the permitted submission channel.
+7. In a fresh browser, verify inbox → comparison → evidence → human action. Give judges both the deployment URL and the token through the permitted submission channel.
 
 Free Render web services sleep after 15 minutes of inactivity and use ephemeral files. This is why cases, checkpoints and attachments are in Supabase. One bounded runner works **inside the web process**; there is no separate free worker and no promise that jobs continue while the service sleeps. Interrupted processing can resume after its 30-minute lease expires. Checkpointed classification/extraction are reused; a crash after an external AI request but before its checkpoint can cause that call to repeat. [Render free-service limits](https://render.com/docs/free)
 
