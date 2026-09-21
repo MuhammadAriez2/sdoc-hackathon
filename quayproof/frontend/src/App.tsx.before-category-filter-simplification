@@ -4,7 +4,7 @@ import type {Case,Config,Doc,Observation} from './types';
 const labels:Record<string,string>={shipper:'Shipper',consignee:'Consignee',notify_party:'Notify party',port_of_loading:'Port of loading',port_of_discharge:'Port of discharge',container_count:'Container count',gross_weight_kg:'Gross weight · kg'};
 const categories=['BL_COMPARISON','SI_REQUEST','INVOICE_QUERY','GENERAL','SPAM'];
 // quayproof-category-filters-v1
-const categoryFilters=[['all','All emails'],['BL_COMPARISON','BL comparisons'],['SI_REQUEST','SI requests'],['INVOICE_QUERY','Invoice queries'],['GENERAL','General'],['SPAM','Spam']] as const;
+const categoryFilters=[['all','All emails'],['BL_COMPARISON','BL comparisons'],['SI_REQUEST','SI requests'],['INVOICE_QUERY','Invoice queries'],['GENERAL','General'],['SPAM','Spam'],['unclassified','Not yet classified']] as const;
 const filterLabels:Record<string,string>={...Object.fromEntries(categoryFilters),defects:'Confirmed defects',review:'Need human review',clear:'All seven match',failures:'Processing failures'};
 function matchesFilter(c:Case,filter:string){
  if(filter==='all')return true;
@@ -12,6 +12,7 @@ function matchesFilter(c:Case,filter:string){
  if(filter==='review')return !!c.result?.requires_review;
  if(filter==='clear')return c.result?.status==='OK';
  if(filter==='failures')return c.state==='failed';
+ if(filter==='unclassified')return !c.classification;
  return c.classification?.category===filter;
 }
 const nice=(s:string)=>s.replaceAll('_',' ').toLowerCase();
@@ -74,7 +75,7 @@ export default function App(){
  const waiting=detail?.state==='queued'||detail?.state==='processing';
 
  return <div className="shell">
-  <aside className="rail"><div className="brand"><span className="mark">Q</span>QuayProof<span className="beta">MVP</span></div><p className="rail-caption">SHIPPING ASSURANCE</p><button className={`nav ${filter!=='review'&&filter!=='failures'?'active':''}`} onClick={()=>chooseFilter('all')}>▤ &nbsp; Operations inbox <span>{totals.all}</span></button><button className={`nav ${filter==='review'?'active':''}`} onClick={()=>chooseFilter('review')}>◈ &nbsp; Review queue <span>{totals.review}</span></button><button className={`nav ${filter==='failures'?'active':''}`} onClick={()=>chooseFilter('failures')}>↻ &nbsp; Processing failures <span>{cases.filter(c => c.state === 'failed').length}</span></button><div className="rail-bottom"><div className="online-dot"/> {config?.storage==='supabase'?'Supabase connected':'Local workspace'}<p>Every decision,<br/>backed by evidence.</p><small>Prototype · shared team workspace</small></div></aside>
+  <aside className="rail"><div className="brand"><span className="mark">Q</span>QuayProof<span className="beta">MVP</span></div><p className="rail-caption">SHIPPING ASSURANCE</p><button className={`nav ${filter!=='review'&&filter!=='failures'?'active':''}`} onClick={()=>chooseFilter('all')}>▤ &nbsp; Operations inbox <span>{totals.all}</span></button><button className={`nav ${filter==='review'?'active':''}`} onClick={()=>chooseFilter('review')}>◈ &nbsp; Review queue <span>{totals.review}</span></button><button className={`nav ${filter==='failures'?'active':''}`} onClick={()=>chooseFilter('failures')}>↻ &nbsp; Processing failures</button><div className="rail-bottom"><div className="online-dot"/> {config?.storage==='supabase'?'Supabase connected':'Local workspace'}<p>Every decision,<br/>backed by evidence.</p><small>Prototype · shared team workspace</small></div></aside>
   <main><header><div><span className="eyebrow">CONTROL DESK / INBOX</span><h1>Know what can ship.</h1><p>Compare the instruction. Verify the draft. Resolve the exceptions.</p></div><div className="header-actions"><button disabled={busy} onClick={()=>void action(async()=>{await api('/demo',{method:'POST'});})}>Load demo inbox</button><button className="primary" onClick={()=>setShowNew(true)}>+ New request</button></div></header>
   <div className="mode"><span className="dot"/><strong>{config?.provider==='demo'?'Offline demo · deterministic fixtures':`${config?.provider||'Connecting'} AI`}</strong><span>{config?.provider==='demo'?'Connect Gemini or Ollama to enable AI classification and extraction.':'Decisions use source evidence and deterministic comparisons.'}</span><span className="mode-right">{config?.daily_call_limit||100} AI calls/day app cap</span></div>
   {error&&<div className="alert" role="alert">{error}<button onClick={()=>setError('')}>Dismiss</button></div>}
